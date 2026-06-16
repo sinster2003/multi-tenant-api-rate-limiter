@@ -1,20 +1,43 @@
+import { redisClient } from "../../../redis/index.js";
 import algorithmStrategy from "./algorithmStrategy.js";
-import type { Policies } from "./types.js";
+import { counterFixedWindowKey, fixedWindowStartKey } from "./constants.js";
+import type { Policy } from "./types.js";
 
 class fixedWindowAlgorithm extends algorithmStrategy {
-    public execute(policies: Policies) {
-        // if windowStart for a tenant endpoint does not exist -> create a window start timestamp in redis
+    public async execute(tenantId: string, policy: Policy) {
+        try {
+            const windowStart = await redisClient.get(fixedWindowStartKey(tenantId, policy.endpoint));
 
-        // this timestamp is used to determine the fixed window (currentTime - windowStart > window -> create a new fixed window)
+            if(windowStart) {
+                const currentTime = Number(new Date());
+                const windowStartTime = Number(new Date(windowStart));
 
-        // this steps must happen: if current time - windowStart <= window
-        // read counter from redis based on policy strategy
+                const timeDiff = Math.ceil((currentTime - windowStartTime) / 1000);
 
-        // if counter + 1 exceeds threshold -> 429 too many requests
+                if(timeDiff <= policy.window) {
+                    const count = await redisClient.get(counterFixedWindowKey(tenantId, policy.endpoint));
+                    const currentCount = Number(count);
 
-        // else increment the counter and forward request
-
-        // if time - windowstart > window meaning old window is deprecated new window
-        // set counter of request 1 in redis -> assuming threshold is always >= 1  
+                    if(currentCount + 1 > policy.threshold) {
+                        // rate limit the request
+                        return false;
+                    }
+                }
+                else {
+                    // current window exceeds permitted window - create a new fixed window and process current request with count set to 1
+                    await redisClient.set(fixedWindowStartKey(tenantId, policy.endpoint), new Date().toISOString());
+                    await redisClient.set(counterFixedWindowKey(tenantId, policy.endpoint), 1);
+                }
+            }
+        }
+        catch(error) {
+            console.log("Internal Server Error");
+            console.error(error);
+        }
+        finally {
+            return true; // success or fail-open
+        }
     }
 }
+
+export default fixedWindowAlgorithm;

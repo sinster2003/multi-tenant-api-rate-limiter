@@ -1,5 +1,6 @@
-export interface Policies {
-    threshold: number,
-    window: number,
+export interface Policy {
+    threshold: number
+    window: number
     strategy: 'user' | 'app'
+    endpoint: string
 }

@@ -1,6 +1,6 @@
 import app from "./app.js";
 import { PORT } from "./config/index.js";
-import connectRedis from "./redis/index.js";
+import { connectRedis } from "./redis/index.js";
 
 async function startServer() {
     try {

@@ -15,4 +15,7 @@ async function connectRedis() {
     }
 }
 
-export default connectRedis;
+export {
+    redisClient,
+    connectRedis
+};
