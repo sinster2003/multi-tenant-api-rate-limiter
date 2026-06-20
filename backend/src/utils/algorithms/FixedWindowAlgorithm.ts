@@ -1,9 +1,9 @@
-import { redisClient } from "../../../redis/index.js";
-import algorithmStrategy from "./algorithmStrategy.js";
-import { counterFixedWindowKey, fixedWindowStartKey } from "./constants.js";
-import type { Policy } from "./types.js";
+import { redisClient } from "../../redis/index.js";
+import AlgorithmStrategy from "./AlgorithmStrategy.js";
+import { counterFixedWindowKey, fixedWindowStartKey } from "./lib/constants.js";
+import type { Policy } from "./lib/types.js";
 
-class fixedWindowAlgorithm extends algorithmStrategy {
+class FixedWindowAlgorithm extends AlgorithmStrategy {
     public async execute(tenantId: string, policy: Policy) {
         try {
             const windowStart = await redisClient.get(fixedWindowStartKey(tenantId, policy.endpoint));
@@ -23,12 +23,12 @@ class fixedWindowAlgorithm extends algorithmStrategy {
                         return false;
                     }
                 }
-                else {
-                    // current window exceeds permitted window - create a new fixed window and process current request with count set to 1
-                    await redisClient.set(fixedWindowStartKey(tenantId, policy.endpoint), new Date().toISOString());
-                    await redisClient.set(counterFixedWindowKey(tenantId, policy.endpoint), 1);
-                }
             }
+
+            // case: if windowStart does not exceed or if time difference exceeds permitted policy window
+            // current window exceeds permitted window - create a new fixed window and process current request with count set to 1
+            await redisClient.set(fixedWindowStartKey(tenantId, policy.endpoint), new Date().toISOString());
+            await redisClient.set(counterFixedWindowKey(tenantId, policy.endpoint), 1);
         }
         catch(error) {
             console.log("Internal Server Error");
@@ -40,4 +40,4 @@ class fixedWindowAlgorithm extends algorithmStrategy {
     }
 }
 
-export default fixedWindowAlgorithm;
+export default FixedWindowAlgorithm;

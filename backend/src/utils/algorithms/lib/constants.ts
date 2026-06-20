@@ -6,3 +6,7 @@ export function fixedWindowStartKey(tenantId: string, endpoint: string) {
 export function counterFixedWindowKey(tenantId: string, endpoint: string) {
     return `counter:fixed:window:${tenantId}:${endpoint}`;
 }
+
+export function slidingWindowTimestampLogKey(tenantId: string, endpoint: string) {
+    return `sliding:window:log:${tenantId}:${endpoint}`;
+}
