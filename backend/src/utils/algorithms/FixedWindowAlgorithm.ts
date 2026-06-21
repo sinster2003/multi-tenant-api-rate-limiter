@@ -29,13 +29,13 @@ class FixedWindowAlgorithm extends AlgorithmStrategy {
             // current window exceeds permitted window - create a new fixed window and process current request with count set to 1
             await redisClient.set(fixedWindowStartKey(tenantId, policy.endpoint), new Date().toISOString());
             await redisClient.set(counterFixedWindowKey(tenantId, policy.endpoint), 1);
+
+            return true; // success
         }
         catch(error) {
             console.log("Internal Server Error");
             console.error(error);
-        }
-        finally {
-            return true; // success or fail-open
+            return true; // fail-open
         }
     }
 }

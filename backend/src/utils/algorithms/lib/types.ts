@@ -3,4 +3,6 @@ export interface Policy {
     window: number
     strategy: 'user' | 'app'
     endpoint: string
+    bucketSize?: number
+    tokensRefillRate?: number
 }

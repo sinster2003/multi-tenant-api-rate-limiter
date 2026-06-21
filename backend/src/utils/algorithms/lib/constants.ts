@@ -10,3 +10,11 @@ export function counterFixedWindowKey(tenantId: string, endpoint: string) {
 export function slidingWindowTimestampLogKey(tenantId: string, endpoint: string) {
     return `sliding:window:log:${tenantId}:${endpoint}`;
 }
+
+export function tokenBucketSizeKey(tenantId: string, endpoint: string) {
+    return `token:bucket:size:${tenantId}:${endpoint}`;
+}
+
+export function tokenBucketLastRefillTimestamp(tenantId: string, endpoint: string) {
+    return `token:bucket:last:refill:${tenantId}:${endpoint}`;
+}

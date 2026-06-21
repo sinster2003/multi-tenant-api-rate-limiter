@@ -40,13 +40,15 @@ class SlidingWindowAlgorithm extends AlgorithmStrategy {
             }
             
             await redisClient.lPush(timestampLog, currentTimestamp.toISOString()); // log the forwarded request timestamp
+            
+            return true; // success
         }
         catch(error) {
             console.log("Internal Server Error");
             console.log(error);
-        }
-        finally {
-            return true; // success or fail-open
+            return true; // fail-open
         }
     }
 }
+
+export default SlidingWindowAlgorithm;
