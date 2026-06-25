@@ -1,43 +1,38 @@
 import { redisClient } from "../../redis/index.js";
 import AlgorithmStrategy from "./AlgorithmStrategy.js";
-import { counterFixedWindowKey, fixedWindowStartKey } from "./lib/constants.js";
+import { counterFixedWindowKey } from "./lib/constants.js";
 import type { Policy } from "./lib/types.js";
 
 class FixedWindowAlgorithm extends AlgorithmStrategy {
     public async execute(tenantId: string, policy: Policy) {
         try {
-            const currentTime = Date.now();
-
-            const windowStartKey = fixedWindowStartKey(tenantId, policy.endpoint);
-
             const counterKey = counterFixedWindowKey(tenantId, policy.endpoint)
+            
+            const count = await redisClient.get(counterKey);
 
-            const windowStart = await redisClient.get(windowStartKey);
+            if(count !== null) {
+                const requestCount = Number(count);
 
-            if(windowStart) {
-                const windowStartTime = Number(windowStart);
-
-                const timeDiff = Math.ceil((currentTime - windowStartTime) / 1000);
-
-                if(timeDiff <= policy.window) {
-                    const count = await redisClient.get(counterKey);
-
-                    const currentCount = Number(count);
-
-                    if(currentCount + 1 > policy.threshold) {
-                        // rate limit the request
-                        return false;
-                    }
-
-                    await redisClient.incr(counterKey);
-
-                    return true; // success
+                if(!Number.isInteger(requestCount) || requestCount < 0) {
+                    throw new Error("Corrupted fixed-window counter in Redis");
                 }
+
+                if(requestCount + 1 > policy.threshold) {
+                    // rate limit the request
+                    return false;
+                }
+
+                await redisClient.incr(counterKey);
+
+                return true; // success
             }
 
-            await redisClient.set(windowStartKey, currentTime.toString());
-
-            await redisClient.set(counterKey, 1);
+            await redisClient.set(counterKey, "1", {
+                expiration: {
+                    type: "EX",
+                    value: policy.window
+                }
+            });
 
             return true; // success
         }
