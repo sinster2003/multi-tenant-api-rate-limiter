@@ -3,44 +3,46 @@ import AlgorithmStrategy from "./AlgorithmStrategy.js";
 import { slidingWindowTimestampLogKey } from "./lib/constants.js";
 import type { Policy } from "./lib/types.js";
 
+/* Note: Sliding window is of O(N) complexity where N is number of timestamp logs in worst case scenario */
+
 class SlidingWindowAlgorithm extends AlgorithmStrategy {
     public async execute(tenantId: string, policy: Policy) {
         try {
-            const currentTimestamp = new Date(); // current time represents the end of new sliding window
+            const currentTime = Date.now(); // current time represents the end of new sliding window
             
-            const currentTime = Number(currentTimestamp);
+            const permittedWindow = policy.window; // validated always >= 1 and in seconds
 
-            const permittedWindow = policy.window;
+            const windowStart = currentTime - (permittedWindow * 1000); // permitted window converted into milliseconds
 
-            const newWindowStart = currentTime - permittedWindow;
+            const timestampLogKey = slidingWindowTimestampLogKey(tenantId, policy.endpoint);
 
-            const timestampLog = slidingWindowTimestampLogKey(tenantId, policy.endpoint);
+            while(true) {
+                const lastLogValue = await redisClient.lIndex(timestampLogKey, -1);
 
-            const lastElement = await redisClient.lIndex(timestampLog, -1);
-
-            if(lastElement) {
-                let lastElementTime = Number(new Date(lastElement));
-
-                while(lastElementTime < newWindowStart) {
-                    await redisClient.rPop(timestampLog);
-                    const lastElement = await redisClient.lIndex(timestampLog, -1);
-
-                    if(!lastElement) {
-                        break;
-                    }
-
-                    lastElementTime = Number(new Date(lastElement));
+                if(lastLogValue === null) {
+                    break; // timestamp log is empty
                 }
+
+                const lastLog = Number(lastLogValue);
+
+                if (lastLog >= windowStart) {
+                    break; // timestamp log within allowed sliding window
+                }
+
+                await redisClient.rPop(timestampLogKey);
             }
 
-            const logSize = await redisClient.lLen(timestampLog);
-
+            const logSize = await redisClient.lLen(timestampLogKey);
+            
+            // threshold >= 1 always
             if(logSize >= policy.threshold) {
                 return false; // rate limit - number of requests in the window is equal to or greater than threshold
             }
             
-            await redisClient.lPush(timestampLog, currentTimestamp.toISOString()); // log the forwarded request timestamp
+            await redisClient.lPush(timestampLogKey, currentTime.toString()); // log the forwarded request timestamp
             
+            await redisClient.expire(timestampLogKey, permittedWindow);
+
             return true; // success
         }
         catch(error) {
